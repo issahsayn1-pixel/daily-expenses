@@ -1,8 +1,14 @@
+const CACHE_NAME = 'tracker-v1';
+const assets = ['./', './index.html', './manifest.json'];
+
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(assets))
+  );
 });
 
 self.addEventListener('fetch', (event) => {
-  // This allows the app to work offline
-  event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+  event.respondWith(
+    fetch(event.request).catch(() => caches.match(event.request))
+  );
 });
