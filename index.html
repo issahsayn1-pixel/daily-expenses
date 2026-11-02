@@ -1,365 +1,303 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#065f46">
-<link rel="apple-touch-icon" href="icon-192.png">
-<link rel="icon" type="image/png" href="icon-192.png">
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Daily Expenses</title>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Daily Tracker</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#064e3b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body { background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .emerald-gradient { background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); }
+        .expense-card { transition: transform 0.1s; }
+        .expense-card:active { transform: scale(0.98); }
+        input, select { font-size: 16px !important; } /* Prevents iOS zoom on focus */
+    </style>
 </head>
-<body class="bg-stone-50">
-<div id="root"></div>
-<script type="text/babel">
+<body>
+    <div id="root"></div>
 
-var STORAGE_KEY = "dailyExpenses_data_v1";
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
 
-/* ============================ DAILY TEXTS ============================ */
+        const WELCOME_MESSAGES = [
+            "Assalamu Alaikum! Let's track your wealth.",
+            "Bismillah! Every cent counted is a cent saved.",
+            "Welcome back! Prosperity begins with discipline.",
+            "Habibi, track your spending today for a better tomorrow.",
+            "Keep going! Small savings lead to big dreams.",
+            "Marhaba! Time to balance the books.",
+            "Success starts with awareness. You've got this!"
+        ];
 
-var AR_GREETINGS = [
-  "أهلاً بك من جديد! كل مصروف تسجّله اليوم هو خطوة نحو السيطرة على مالك.",
-  "يوم جديد وبداية جديدة — راقب مصاريفك وكن أنت من يقرر.",
-  "مرحباً بك! التوفير الصغير اليوم يصنع الأمان الكبير غداً.",
-  "أهلاً بك! سجّل مصاريفك بصدق، والأرقام لن تكذب عليك.",
-  "صباحاً أو مساءً، السؤال واحد: هل سجّلت مصاريف اليوم؟",
-  "أهلاً! من يحاسب مصاريفه يومياً لا يُفاجئه آخر الشهر."
-];
+        const WEALTH_QUOTES = [
+            "Wealth is not about having much, but being content.",
+            "A penny saved is a penny earned.",
+            "The best richness is the richness of the soul.",
+            "Do not save what is left after spending; spend what is left after saving.",
+            "Budgeting tells your money where to go instead of wondering where it went.",
+            "Small leaks can sink a great ship. Watch your expenses.",
+            "Financial freedom is available to those who learn about it and work for it."
+        ];
 
-var EN_GREETINGS = [
-  "Welcome back! Every expense you log today is a step toward control.",
-  "A new day, a clean page - track it before it disappears.",
-  "Hello! Small savings today build big security tomorrow.",
-  "Welcome! Record your spending honestly; the numbers never lie.",
-  "Morning or evening, one question matters: did you log today's expenses?",
-  "Hello! Whoever tracks daily is never surprised at month's end."
-];
+        function App() {
+            const [expenses, setExpenses] = useState(() => {
+                const saved = localStorage.getItem('dailyTracker_v1');
+                return saved ? JSON.parse(saved) : [];
+            });
 
-var QUOTES = [
-  { en: "Do not save what is left after spending, but spend what is left after saving.", ar: "لا توفّر ما يبقى بعد الإنفاق، بل أنفق ما يبقى بعد التوفير.", author: "Warren Buffett" },
-  { en: "A budget is telling your money where to go instead of wondering where it went.", ar: "الميزانية هي أن توجّه مالك إلى حيث تريد، بدل أن تتساءل أين ذهب.", author: "Dave Ramsey" },
-  { en: "Beware of little expenses; a small leak will sink a great ship.", ar: "احذر المصاريف الصغيرة؛ تسريب صغير يغرق سفينة عظيمة.", author: "Benjamin Franklin" },
-  { en: "An investment in knowledge pays the best interest.", ar: "الاستثمار في المعرفة يعطي أفضل عائد.", author: "Benjamin Franklin" },
-  { en: "It's not how much money you make, but how much money you keep.", ar: "ليس المهم كم تكسب، بل كم تحتفظ.", author: "Robert Kiyosaki" },
-  { en: "The stock market is a device for transferring money from the impatient to the patient.", ar: "سوق الأسهم وسيلة لنقل المال من غير الصبورين إلى الصبورين.", author: "Warren Buffett" },
-  { en: "Wealth consists not in having great possessions, but in having few wants.", ar: "الغنى ليس في كثرة الممتلكات، بل في قلة الحاجات.", author: "Epictetus" },
-  { en: "Someone's sitting in the shade today because someone planted a tree long ago.", ar: "شخص يجلس في الظل اليوم لأن أحدهم غرس شجرة منذ زمن بعيد.", author: "Warren Buffett" },
-  { en: "Compound interest is the eighth wonder of the world.", ar: "الفائدة المركّبة هي المعجزة الثامنة في العالم.", author: "Albert Einstein" },
-  { en: "Every time you borrow money, you're robbing your future self.", ar: "كل مرة تستلف فيها مالاً، أنت تسرق نفسك المستقبلية.", author: "Nathan W. Morris" },
-  { en: "Formal education will make you a living; self-education will make you a fortune.", ar: "التعليم النظامي يكسبك عيشاً، والتعليم الذاتي يكسبك ثروة.", author: "Jim Rohn" },
-  { en: "Money is a terrible master but an excellent servant.", ar: "المال سيّد سيئ، لكنه خادم ممتاز.", author: "P.T. Barnum" },
-  { en: "The price of anything is the amount of life you exchange for it.", ar: "ثمن أي شيء هو مقدار الحياة الذي تدفعه مقابلاً له.", author: "Henry David Thoreau" },
-  { en: "Start thy purse to fattening.", ar: "اجعل محفظتك تتسمّن — وفّر جزءاً من كل ما تكسبه.", author: "The Richest Man in Babylon" }
-];
+            const [rate, setRate] = useState(() => {
+                const saved = localStorage.getItem('dailyTracker_rate');
+                return saved ? parseFloat(saved) : 600;
+            });
 
-/* ============================ HELPERS ============================ */
+            const [amount, setAmount] = useState('');
+            const [currency, setCurrency] = useState('CFA');
+            const [note, setNote] = useState('');
+            const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
-function todayISO() { return new Date().toISOString().slice(0,10); }
+            const welcomeMsg = useMemo(() => WELCOME_MESSAGES[new Date().getDate() % WELCOME_MESSAGES.length], []);
+            const quoteMsg = useMemo(() => WEALTH_QUOTES[new Date().getDate() % WEALTH_QUOTES.length], []);
 
-var MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+            useEffect(() => {
+                localStorage.setItem('dailyTracker_v1', JSON.stringify(expenses));
+            }, [expenses]);
 
-function monthKeyOf(dateStr) { return dateStr.slice(0,7); }
+            useEffect(() => {
+                localStorage.setItem('dailyTracker_rate', rate.toString());
+            }, [rate]);
 
-function monthLabelFromKey(mk) {
-  var y = mk.slice(0,4);
-  var m = parseInt(mk.slice(5,7),10) - 1;
-  return MONTH_NAMES[m] + " " + y;
-}
+            const addExpense = () => {
+                if (!amount || parseFloat(amount) <= 0) return;
+                
+                const newExpense = {
+                    id: Date.now(),
+                    amount: parseFloat(amount),
+                    currency,
+                    note: note || 'General',
+                    date,
+                    monthLabel: date.substring(0, 7) // YYYY-MM
+                };
 
-function fmt(n) {
-  return (Math.round(n*100)/100).toLocaleString("en-US", { maximumFractionDigits: 2 });
-}
+                setExpenses([newExpense, ...expenses]);
+                setAmount('');
+                setNote('');
+            };
 
-function toCFA(amount, currency, rate) {
-  if (currency === "USD") return amount * rate;
-  return amount;
-}
+            const deleteExpense = (id) => {
+                if(confirm("Delete this record?")) {
+                    setExpenses(expenses.filter(e => e.id !== id));
+                }
+            };
 
-function dayNumber() { return Math.floor(Date.now() / 86400000); }
+            const resetData = () => {
+                const pwd = prompt("Enter password to reset all data:");
+                if (pwd === "2007") {
+                    setExpenses([]);
+                    alert("Database cleared.");
+                } else {
+                    alert("Incorrect password.");
+                }
+            };
 
-function getGreeting() {
-  var d = dayNumber();
-  if (d % 2 === 0) {
-    return { text: AR_GREETINGS[Math.floor(d/2) % AR_GREETINGS.length] };
-  }
-  return { text: EN_GREETINGS[Math.floor(d/2) % EN_GREETINGS.length] };
-}
+            // Grouping logic
+            const grouped = expenses.reduce((acc, exp) => {
+                if (!acc[exp.monthLabel]) acc[exp.monthLabel] = [];
+                acc[exp.monthLabel].push(exp);
+                return acc;
+            }, {});
 
-function getDailyQuote() {
-  var start = new Date(2024,0,1).getTime();
-  var days = Math.floor((Date.now() - start) / 86400000);
-  return QUOTES[((days % QUOTES.length) + QUOTES.length) % QUOTES.length];
-}
+            const sortedMonths = Object.keys(grouped).sort().reverse();
 
-function loadData() {
-  try {
-    var raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      var d = JSON.parse(raw);
-      if (d) {
-        if (typeof d.rate !== "number" || !(d.rate > 0)) d.rate = 600;
-        if (!Array.isArray(d.expenses)) d.expenses = [];
-        return d;
-      }
-    }
-  } catch (e) {}
-  return { rate: 600, expenses: [] };
-}
+            const calculateMonthTotals = (monthExpenses) => {
+                let totalCFA = 0;
+                let totalUSD = 0;
 
-function saveData(d) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch (e) { console.error("Save error:", e); }
-}
+                monthExpenses.forEach(e => {
+                    if (e.currency === 'CFA') {
+                        totalCFA += e.amount;
+                        totalUSD += (e.amount / rate);
+                    } else {
+                        totalUSD += e.amount;
+                        totalCFA += (e.amount * rate);
+                    }
+                });
 
-/* ============================ SMALL COMPONENTS ============================ */
+                return { cfa: totalCFA.toLocaleString(), usd: totalUSD.toFixed(2) };
+            };
 
-function ExpenseRow(props) {
-  var e = props.e; var rate = props.rate; var onDelete = props.onDelete;
-  var cfa = toCFA(e.amount, e.currency, rate);
-  return (
-    <div className="flex items-start justify-between gap-2 border-t border-stone-100 py-2">
-      <div className="min-w-0">
-        <div className="text-sm text-stone-800">
-          <span className="font-semibold">{fmt(e.amount)} {e.currency}</span>
-          {e.currency === "USD" ? <span className="text-stone-400 text-xs"> (approx. {fmt(cfa)} CFA)</span> : null}
-        </div>
-        <div className="text-xs text-stone-500">{e.date}{e.note ? " - " + e.note : ""}</div>
-      </div>
-      <button onClick={function () { if (window.confirm("Delete this expense?")) onDelete(e.id); }}
-        className="text-rose-600 text-xs px-2 py-1">Delete</button>
-    </div>
-  );
-}
+            return (
+                <div className="max-w-md mx-auto min-h-screen flex flex-col pb-10">
+                    {/* Header */}
+                    <header className="emerald-gradient text-white p-6 rounded-b-3xl shadow-lg">
+                        <h1 className="text-xl font-bold opacity-90">{welcomeMsg}</h1>
+                        <p className="text-sm opacity-75 mt-1">Daily Expense Tracker</p>
+                        
+                        <div className="mt-6 bg-white/10 p-4 rounded-xl backdrop-blur-sm border border-white/20">
+                            <label className="block text-xs uppercase tracking-wider font-semibold opacity-80">Exchange Rate (1 USD to CFA)</label>
+                            <input 
+                                type="number" 
+                                value={rate}
+                                onChange={(e) => setRate(parseFloat(e.target.value) || 0)}
+                                className="bg-transparent text-2xl font-bold w-full outline-none mt-1"
+                            />
+                        </div>
+                    </header>
 
-function RateBox(props) {
-  var useState = React.useState;
-  var txtState = useState(String(props.rate));
-  var txt = txtState[0];
-  var setTxt = txtState[1];
-  function handleChange(e) {
-    var v = e.target.value;
-    setTxt(v);
-    var n = parseFloat(v);
-    if (n > 0) props.onRate(n);
-  }
-  return (
-    <div className="bg-white rounded-xl border border-stone-200 p-4 mb-4">
-      <label className="block text-sm text-stone-600 mb-1">Exchange Rate: 1 $ (USD) equals</label>
-      <div className="flex items-center gap-2">
-        <input type="number" step="0.01" value={txt} onChange={handleChange}
-          className="border-2 border-teal-600 rounded-lg px-3 py-2 w-32 text-lg font-bold" />
-        <span className="text-stone-600 font-semibold">CFA</span>
-      </div>
-      <p className="text-xs text-stone-400 mt-1">Example: type 600 if 1 $ = 600 CFA. All totals below use this rate.</p>
-    </div>
-  );
-}
+                    {/* Entry Form */}
+                    <main className="p-4 -mt-4">
+                        <div className="bg-white rounded-2xl shadow-md p-5 border border-slate-100">
+                            <div className="grid grid-cols-2 gap-3 mb-3">
+                                <div>
+                                    <label className="text-[10px] text-slate-400 uppercase font-bold">Amount</label>
+                                    <input 
+                                        type="number" 
+                                        value={amount}
+                                        onChange={(e) => setAmount(e.target.value)}
+                                        placeholder="0.00"
+                                        className="w-full border-b-2 border-slate-100 py-2 outline-none focus:border-emerald-500 transition-colors"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] text-slate-400 uppercase font-bold">Currency</label>
+                                    <select 
+                                        value={currency}
+                                        onChange={(e) => setCurrency(e.target.value)}
+                                        className="w-full border-b-2 border-slate-100 py-2 outline-none bg-white"
+                                    >
+                                        <option value="CFA">CFA</option>
+                                        <option value="USD">USD ($)</option>
+                                    </select>
+                                </div>
+                            </div>
 
-function AddExpenseForm(props) {
-  var useState = React.useState;
-  var a1 = useState(""); var amount = a1[0]; var setAmount = a1[1];
-  var c1 = useState("CFA"); var currency = c1[0]; var setCurrency = c1[1];
-  var n1 = useState(""); var note = n1[0]; var setNote = n1[1];
+                            <div className="mb-4">
+                                <label className="text-[10px] text-slate-400 uppercase font-bold">Note / Description</label>
+                                <input 
+                                    type="text" 
+                                    value={note}
+                                    onChange={(e) => setNote(e.target.value)}
+                                    placeholder="Food, Rent, Salary..."
+                                    className="w-full border-b-2 border-slate-100 py-2 outline-none focus:border-emerald-500 transition-colors"
+                                />
+                            </div>
 
-  function submit() {
-    var a = parseFloat(amount);
-    if (!a || a <= 0) { window.alert("Please type an amount first."); return; }
-    props.onAdd(a, currency, note.trim());
-    setAmount(""); setNote("");
-  }
+                            <div className="mb-6">
+                                <label className="text-[10px] text-slate-400 uppercase font-bold">Date</label>
+                                <input 
+                                    type="date" 
+                                    value={date}
+                                    onChange={(e) => setDate(e.target.value)}
+                                    className="w-full border-b-2 border-slate-100 py-2 outline-none"
+                                />
+                            </div>
 
-  return (
-    <div className="bg-white rounded-xl border border-stone-200 p-4 mb-4">
-      <h3 className="font-bold text-emerald-800 mb-2">Add Today's Expense</h3>
-      <div className="flex gap-2 mb-2">
-        <input type="number" step="0.01" placeholder="Amount" value={amount}
-          onChange={function (e) { setAmount(e.target.value); }}
-          className="border border-stone-300 rounded-lg px-3 py-2 flex-1 text-lg" />
-        <select value={currency} onChange={function (e) { setCurrency(e.target.value); }}
-          className="border border-stone-300 rounded-lg px-2 py-2 font-semibold">
-          <option value="CFA">CFA</option>
-          <option value="USD">USD</option>
-        </select>
-      </div>
-      <input placeholder="Note: what was it for? (e.g. taxi, food, medicine)" value={note}
-        onChange={function (e) { setNote(e.target.value); }}
-        className="w-full border border-stone-300 rounded-lg px-3 py-2 mb-3" />
-      <button onClick={submit} className="w-full bg-emerald-700 text-white font-bold py-3 rounded-lg text-lg">+ Add Expense</button>
-    </div>
-  );
-}
+                            <button 
+                                onClick={addExpense}
+                                className="w-full emerald-gradient text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-transform"
+                            >
+                                SAVE EXPENSE
+                            </button>
+                        </div>
 
-function MonthCard(props) {
-  var useState = React.useState;
-  var m = props.m; var rate = props.rate;
-  var onDelete = props.onDelete; var onReset = props.onReset;
-  var isCurrent = props.isCurrent;
-  var o1 = useState(false); var open = o1[0]; var setOpen = o1[1];
+                        {/* History List */}
+                        <div className="mt-8">
+                            <h2 className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-4 px-2">History</h2>
+                            
+                            {sortedMonths.length === 0 && (
+                                <div className="text-center py-10 text-slate-400 italic text-sm">
+                                    No records found yet.
+                                </div>
+                            )}
 
-  return (
-    <div className="bg-white rounded-xl border border-stone-200 p-4 mb-3">
-      <div className="flex justify-between items-center gap-2">
-        <div>
-          <div className="font-bold text-emerald-800">
-            {m.label} {isCurrent ? <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full ml-1">current</span> : null}
-          </div>
-          <div className="text-sm text-stone-600">
-            {fmt(m.totalCFA)} CFA <span className="text-stone-400">/ ${fmt(m.totalUSD)}</span>
-          </div>
-        </div>
-        <button onClick={function () { setOpen(!open); }}
-          className="text-sm bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1 rounded whitespace-nowrap">
-          {open ? "Hide" : "Details"}
-        </button>
-      </div>
-      {open ? (
-        <div className="mt-2">
-          {m.expenses.map(function (e) {
-            return <ExpenseRow key={e.id} e={e} rate={rate} onDelete={onDelete} />;
-          })}
-          <button onClick={function () { onReset(m.key); }}
-            className="mt-3 text-xs bg-rose-50 border border-rose-300 text-rose-600 px-3 py-2 rounded">
-            Reset This Month (password required)
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
+                            {sortedMonths.map(month => {
+                                const monthTotals = calculateMonthTotals(grouped[month]);
+                                const displayMonth = new Date(month + "-02").toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                                
+                                return (
+                                    <details key={month} className="mb-4 group bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden" open>
+                                        <summary className="list-none p-4 flex justify-between items-center cursor-pointer bg-slate-50/50">
+                                            <div>
+                                                <h3 className="font-bold text-slate-800">{displayMonth}</h3>
+                                                <div className="flex gap-3 mt-1">
+                                                    <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">{monthTotals.cfa} CFA</span>
+                                                    <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">${monthTotals.usd}</span>
+                                                </div>
+                                            </div>
+                                            <div className="text-slate-300 group-open:rotate-180 transition-transform">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                            </div>
+                                        </summary>
+                                        
+                                        <div className="p-2 border-t border-slate-50">
+                                            {grouped[month].map(exp => (
+                                                <div key={exp.id} className="flex justify-between items-center p-3 border-b border-slate-50 last:border-0 expense-card">
+                                                    <div>
+                                                        <div className="font-semibold text-slate-700">{exp.note}</div>
+                                                        <div className="text-[10px] text-slate-400">{new Date(exp.date).toLocaleDateString()}</div>
+                                                    </div>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="text-right">
+                                                            <div className="font-bold text-slate-900">{exp.amount.toLocaleString()} {exp.currency}</div>
+                                                            <div className="text-[9px] text-slate-400">
+                                                                {exp.currency === 'CFA' ? `$${(exp.amount/rate).toFixed(2)}` : `${(exp.amount*rate).toLocaleString()} CFA`}
+                                                            </div>
+                                                        </div>
+                                                        <button onClick={() => deleteExpense(exp.id)} className="text-red-200 hover:text-red-500 p-1">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </details>
+                                );
+                            })}
+                        </div>
 
-/* ============================ MAIN APP ============================ */
+                        <button 
+                            onClick={resetData}
+                            className="w-full mt-10 py-3 text-xs font-bold text-red-300 hover:text-red-600 transition-colors tracking-widest"
+                        >
+                            RESET ENTIRE DATABASE
+                        </button>
+                    </main>
 
-function App() {
-  var useState = React.useState;
-  var useEffect = React.useEffect;
+                    {/* Footer Quote */}
+                    <footer className="mt-auto p-8 text-center">
+                        <div className="w-10 h-1 bg-emerald-200 mx-auto mb-4 rounded-full"></div>
+                        <p className="text-slate-400 italic text-sm px-4">
+                            "{quoteMsg}"
+                        </p>
+                    </footer>
+                </div>
+            );
+        }
 
-  var ds = useState(loadData());
-  var data = ds[0];
-  var setDataState = ds[1];
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
 
-  useEffect(function () { saveData(data); }, [data]);
-
-  var rate = data.rate || 600;
-
-  function setRate(n) {
-    setDataState(function (p) { return Object.assign({}, p, { rate: n }); });
-  }
-  function addExpense(a, currency, note) {
-    setDataState(function (p) {
-      return Object.assign({}, p, {
-        expenses: p.expenses.concat([{ id: uid(), date: todayISO(), createdAt: Date.now(), amount: a, currency: currency, note: note }])
-      });
-    });
-  }
-  function deleteExpense(id) {
-    setDataState(function (p) {
-      return Object.assign({}, p, { expenses: p.expenses.filter(function (e) { return e.id !== id; }) });
-    });
-  }
-  function resetMonth(mk) {
-    var pw = window.prompt("Type the password to reset this month:");
-    if (pw === null) return;
-    if (pw !== "2007") { window.alert("Wrong password. Nothing was changed."); return; }
-    if (!window.confirm("Delete ALL expenses of this month? This cannot be undone.")) return;
-    setDataState(function (p) {
-      return Object.assign({}, p, { expenses: p.expenses.filter(function (e) { return monthKeyOf(e.date) !== mk; }) });
-    });
-  }
-
-  var tk = todayISO();
-  var cmk = monthKeyOf(tk);
-
-  var todayExpenses = data.expenses.filter(function (e) { return e.date === tk; });
-  var todayCFA = todayExpenses.reduce(function (s, e) { return s + toCFA(e.amount, e.currency, rate); }, 0);
-
-  var monthExpenses = data.expenses
-    .filter(function (e) { return monthKeyOf(e.date) === cmk; })
-    .slice().sort(function (a, b) { return b.createdAt - a.createdAt; });
-  var monthCFA = monthExpenses.reduce(function (s, e) { return s + toCFA(e.amount, e.currency, rate); }, 0);
-
-  var monthsMap = {};
-  data.expenses.forEach(function (e) {
-    var mk = monthKeyOf(e.date);
-    if (!monthsMap[mk]) monthsMap[mk] = [];
-    monthsMap[mk].push(e);
-  });
-  var monthKeys = Object.keys(monthsMap);
-  monthKeys.sort();
-  monthKeys.reverse();
-  var months = monthKeys.map(function (mk) {
-    var list = monthsMap[mk].slice().sort(function (a, b) { return b.createdAt - a.createdAt; });
-    var tcfa = list.reduce(function (s, e) { return s + toCFA(e.amount, e.currency, rate); }, 0);
-    return { key: mk, label: monthLabelFromKey(mk), expenses: list, totalCFA: tcfa, totalUSD: tcfa / rate };
-  });
-
-  var greeting = getGreeting();
-  var quote = getDailyQuote();
-
-  return (
-    <div className="min-h-screen bg-stone-50 px-4 py-4 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-emerald-800 mb-1">Daily Expenses</h1>
-      <p className="text-xs text-stone-400 mb-3">Your private daily spending tracker</p>
-
-      <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-amber-600 text-white px-4 py-4 rounded-xl mb-4 shadow">
-        <p className="font-bold text-base md:text-lg" dir="auto">{greeting.text}</p>
-      </div>
-
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-        <p className="text-sm text-stone-800 italic" dir="auto">"{quote.en}"</p>
-        <p className="text-sm text-amber-800 mt-1" dir="auto">{quote.ar}</p>
-        <p className="text-xs text-amber-700 mt-2 font-semibold">- {quote.author}</p>
-      </div>
-
-      <RateBox rate={rate} onRate={setRate} />
-
-      <AddExpenseForm onAdd={addExpense} />
-
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div className="bg-white rounded-xl border border-stone-200 p-4">
-          <div className="text-xs text-stone-500">Today</div>
-          <div className="text-xl font-bold text-emerald-700">{fmt(todayCFA)} CFA</div>
-          <div className="text-xs text-stone-400">approx. ${fmt(todayCFA / rate)}</div>
-        </div>
-        <div className="bg-white rounded-xl border border-stone-200 p-4">
-          <div className="text-xs text-stone-500">This Month</div>
-          <div className="text-xl font-bold text-teal-700">{fmt(monthCFA)} CFA</div>
-          <div className="text-xs text-stone-400">approx. ${fmt(monthCFA / rate)}</div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-stone-200 p-4 mb-4">
-        <h3 className="font-bold text-emerald-800 mb-1">This Month's Expenses</h3>
-        {monthExpenses.length === 0 ? (
-          <p className="text-sm text-stone-500">No expenses yet this month. Add your first one above.</p>
-        ) : (
-          monthExpenses.map(function (e) {
-            return <ExpenseRow key={e.id} e={e} rate={rate} onDelete={deleteExpense} />;
-          })
-        )}
-      </div>
-
-      <h3 className="font-bold text-emerald-800 mb-2">All Months (saved in the database)</h3>
-      {months.length === 0 ? (
-        <p className="text-sm text-stone-500 mb-4">Nothing saved yet. Your months will appear here with their totals.</p>
-      ) : (
-        months.map(function (m) {
-          return <MonthCard key={m.key} m={m} rate={rate} onDelete={deleteExpense} onReset={resetMonth} isCurrent={m.key === cmk} />;
-        })
-      )}
-
-      <footer className="text-center text-xs text-stone-400 py-6 mt-6 border-t border-stone-200">
-        Designed and Developed by Electrical Engineer Mohamad Hussein Ali Issa
-      </footer>
-    </div>
-  );
-}
-
-ReactDOM.render(React.createElement(App), document.getElementById("root"));
-
-</script>
+        // --- NEW: SERVICE WORKER REGISTRATION ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('SW registration failed', err));
+            });
+        }
+    </script>
 </body>
 </html>
